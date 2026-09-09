@@ -43,7 +43,7 @@
           </tr>
         </thead>
         <tbody>
-          {% for item in section.items %}
+          {% for item in section.rows %}
           <tr class="st-{{ item.status }}">
             <td>{{ item.title }}{% if item.description %}<br><span class="muted">{{ item.description }}</span>{% endif %}</td>
             <td>{{ t.st.get(item.status, item.status) }}</td>
@@ -57,7 +57,7 @@
             </td>
           </tr>
           {% endfor %}
-          {% if not section.items %}
+          {% if not section.rows %}
           <tr><td colspan="5" class="muted">{{ t.no_items }}</td></tr>
           {% endif %}
         </tbody>

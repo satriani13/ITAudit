@@ -268,7 +268,7 @@ def audit_report(audit_id):
             "title": st["title"] if st else section.title,
             "description": st["description"] if st else section.description,
             "progress": section.progress(),
-            "items": items_vm,
+            "rows": items_vm,  # 'items' colisiona con dict.items en Jinja
         })
 
     return render_template(
