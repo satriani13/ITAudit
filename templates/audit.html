@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Auditoría · detalle{% endblock %}
+
+{% block nav %}
+  <a class="btn" href="">← Auditorías</a>
+  <a class="btn" id="report-link" target="_blank">Informe</a>
+  <button class="btn" id="export-btn">Exportar JSON</button>
+{% endblock %}
+
+{% block content %}
+<section class="stack" id="audit-root" data-audit-id="{{ audit_id }}">
+  <div class="page-head">
+    <div>
+      <h1 id="audit-name">Cargando…</h1>
+      <p class="muted" id="audit-sub"></p>
+    </div>
+    <div class="head-actions">
+      <button class="btn" id="edit-audit-btn">Editar datos</button>
+      <button class="btn btn-danger" id="delete-audit-btn">Eliminar</button>
+    </div>
+  </div>
+
+  <div class="audit-summary">
+    <div class="progress big"><div class="progress-bar" id="overall-bar"></div></div>
+    <div class="summary-meta">
+      <span id="overall-text"></span>
+      <span class="issues" id="overall-issues"></span>
+    </div>
+  </div>
+
+  <div class="filters">
+    <input type="search" id="item-search" placeholder="Filtrar ítems…" autocomplete="off">
+    <select id="item-status-filter">
+      <option value="">Todos los estados</option>
+      <option value="pendiente">Pendiente</option>
+      <option value="en_progreso">En progreso</option>
+      <option value="ok">OK</option>
+      <option value="incidencia">Incidencia</option>
+      <option value="no_aplica">No aplica</option>
+    </select>
+    <select id="item-sev-filter">
+      <option value="">Cualquier severidad</option>
+      <option value="baja">Baja</option>
+      <option value="media">Media</option>
+      <option value="alta">Alta</option>
+      <option value="critica">Crítica</option>
+    </select>
+    <button class="btn" id="add-section-btn">+ Sección</button>
+  </div>
+
+  <div id="sections"></div>
+</section>
+
+<dialog id="audit-dialog" class="dialog">
+  <form method="dialog" id="audit-form">
+    <h2>Editar auditoría</h2>
+    <label>Nombre *
+      <input name="name" required maxlength="200">
+    </label>
+    <div class="grid-2">
+      <label>Tipo
+        <select name="kind">
+          <option value="fabrica">Fábrica</option>
+          <option value="oficina">Oficina</option>
+          <option value="cpd">CPD</option>
+          <option value="otro">Otro</option>
+        </select>
+      </label>
+      <label>Estado
+        <select name="status">
+          <option value="en_progreso">En progreso</option>
+          <option value="completada">Completada</option>
+          <option value="archivada">Archivada</option>
+        </select>
+      </label>
+    </div>
+    <div class="grid-2">
+      <label>Cliente / empresa<input name="client" maxlength="200"></label>
+      <label>Ubicación<input name="location" maxlength="200"></label>
+    </div>
+    <div class="grid-2">
+      <label>Auditor<input name="auditor" maxlength="200"></label>
+      <label>Fecha de inicio<input name="start_date" type="date"></label>
+    </div>
+    <label>Notas<textarea name="notes" rows="3"></textarea></label>
+    <div class="dialog-actions">
+      <button type="button" class="btn" data-close>Cancelar</button>
+      <button type="submit" class="btn btn-primary">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<template id="section-tpl">
+  <section class="section" data-section-id>
+    <header class="section-head">
+      <button class="section-toggle" aria-expanded="true">▾</button>
+      <h2 class="section-title" data-title></h2>
+      <div class="progress mini"><div class="progress-bar" data-bar></div></div>
+      <span class="section-count" data-count></span>
+      <div class="section-actions">
+        <button class="icon-btn" data-act="add-item" title="Añadir ítem">+</button>
+        <button class="icon-btn" data-act="edit-section" title="Editar sección">✎</button>
+        <button class="icon-btn" data-act="del-section" title="Eliminar sección">🗑</button>
+      </div>
+    </header>
+    <p class="section-desc muted" data-desc></p>
+    <div class="items" data-items></div>
+  </section>
+</template>
+
+<template id="item-tpl">
+  <article class="item" data-item-id>
+    <div class="item-row">
+      <select class="item-status" data-field="status">
+        <option value="pendiente">Pendiente</option>
+        <option value="en_progreso">En progreso</option>
+        <option value="ok">OK</option>
+        <option value="incidencia">Incidencia</option>
+        <option value="no_aplica">No aplica</option>
+      </select>
+      <input class="item-title" data-field="title" placeholder="Título del ítem">
+      <select class="item-sev" data-field="severity">
+        <option value="baja">Baja</option>
+        <option value="media">Media</option>
+        <option value="alta">Alta</option>
+        <option value="critica">Crítica</option>
+      </select>
+      <button class="icon-btn" data-act="expand" title="Detalles">⋯</button>
+      <button class="icon-btn" data-act="del-item" title="Eliminar ítem">🗑</button>
+    </div>
+    <div class="item-detail" hidden>
+      <div class="grid-2">
+        <label>Responsable<input data-field="assignee" maxlength="200"></label>
+        <label>Fecha límite<input data-field="due_date" type="date"></label>
+      </div>
+      <label>Descripción<textarea data-field="description" rows="2"></textarea></label>
+      <label>Hallazgos<textarea data-field="findings" rows="2"></textarea></label>
+      <label>Recomendación<textarea data-field="recommendation" rows="2"></textarea></label>
+      <div class="attachments">
+        <div class="attach-head">
+          <strong>Adjuntos</strong>
+          <label class="btn btn-sm">
+            + Añadir<input type="file" class="attach-input" hidden multiple>
+          </label>
+        </div>
+        <div class="attach-drop" data-drop>Arrastra aquí fotos o documentos</div>
+        <div class="attach-list" data-attach-list></div>
+      </div>
+    </div>
+  </article>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script src="static/js/audit.js"></script>
+{% endblock %}

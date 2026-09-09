@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <base href="{{ base }}/">
+  <title>Informe · {{ audit.name }}</title>
+  <link rel="stylesheet" href="static/css/styles.css">
+</head>
+<body class="report">
+  <div class="report-sheet">
+    <header class="report-header">
+      <h1>Informe de auditoría IT</h1>
+      <p class="muted">Generado {{ generated }}</p>
+    </header>
+
+    <table class="report-meta">
+      <tr><th>Auditoría</th><td>{{ audit.name }}</td></tr>
+      <tr><th>Tipo</th><td>{{ audit.kind }}</td></tr>
+      <tr><th>Cliente</th><td>{{ audit.client or "—" }}</td></tr>
+      <tr><th>Ubicación</th><td>{{ audit.location or "—" }}</td></tr>
+      <tr><th>Auditor</th><td>{{ audit.auditor or "—" }}</td></tr>
+      <tr><th>Fecha de inicio</th><td>{{ audit.start_date or "—" }}</td></tr>
+      <tr><th>Estado</th><td>{{ audit.status }}</td></tr>
+      {% set p = audit.progress() %}
+      <tr><th>Progreso</th><td>{{ p.done }}/{{ p.total }} ({{ p.pct }}%) · {{ audit.issue_count() }} incidencias</td></tr>
+    </table>
+
+    {% if audit.notes %}
+    <div class="report-notes"><strong>Notas:</strong> {{ audit.notes }}</div>
+    {% endif %}
+
+    {% for section in audit.sections %}
+    {% set sp = section.progress() %}
+    <section class="report-section">
+      <h2>{{ loop.index }}. {{ section.title }} <span class="muted">— {{ sp.done }}/{{ sp.total }} ({{ sp.pct }}%)</span></h2>
+      {% if section.description %}<p class="muted">{{ section.description }}</p>{% endif %}
+      <table class="report-table">
+        <thead>
+          <tr><th>Ítem</th><th>Estado</th><th>Sev.</th><th>Responsable</th><th>Hallazgos / recomendación</th></tr>
+        </thead>
+        <tbody>
+          {% for item in section.items %}
+          <tr class="st-{{ item.status }}">
+            <td>{{ item.title }}{% if item.description %}<br><span class="muted">{{ item.description }}</span>{% endif %}</td>
+            <td>{{ item.status }}</td>
+            <td>{{ item.severity }}</td>
+            <td>{{ item.assignee or "—" }}</td>
+            <td>
+              {% if item.findings %}<div>{{ item.findings }}</div>{% endif %}
+              {% if item.recommendation %}<div class="muted">→ {{ item.recommendation }}</div>{% endif %}
+              {% if not item.findings and not item.recommendation %}—{% endif %}
+              {% if item.attachments %}<div class="muted">📎 {{ item.attachments|length }} adjunto(s)</div>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          {% if not section.items %}
+          <tr><td colspan="5" class="muted">Sin ítems.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </section>
+    {% endfor %}
+
+    <footer class="report-footer muted">
+      <button class="btn" onclick="window.print()">Imprimir / PDF</button>
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Auditorías IT{% endblock %}
+
+{% block nav %}
+  <button class="btn btn-primary" id="new-audit-btn">+ Nueva auditoría</button>
+{% endblock %}
+
+{% block content %}
+<section class="stack">
+  <div class="page-head">
+    <div>
+      <h1>Auditorías</h1>
+      <p class="muted">Seguimiento de auditorías IT para nuevas fábricas y oficinas.</p>
+    </div>
+  </div>
+
+  <div class="filters">
+    <input type="search" id="search" placeholder="Buscar por nombre, cliente o ubicación…" autocomplete="off">
+    <select id="status-filter">
+      <option value="">Todos los estados</option>
+      <option value="en_progreso">En progreso</option>
+      <option value="completada">Completada</option>
+      <option value="archivada">Archivada</option>
+    </select>
+  </div>
+
+  <div id="audit-grid" class="audit-grid"></div>
+  <div id="empty" class="empty" hidden>
+    <p>Aún no hay auditorías.</p>
+    <button class="btn btn-primary" id="empty-new-btn">Crear la primera</button>
+  </div>
+</section>
+
+<dialog id="audit-dialog" class="dialog">
+  <form method="dialog" id="audit-form">
+    <h2 id="dialog-title">Nueva auditoría</h2>
+    <input type="hidden" name="id">
+    <label>Nombre *
+      <input name="name" required maxlength="200" placeholder="Fábrica Valencia — puesta en marcha">
+    </label>
+    <div class="grid-2">
+      <label>Tipo
+        <select name="kind">
+          <option value="fabrica">Fábrica</option>
+          <option value="oficina">Oficina</option>
+          <option value="cpd">CPD</option>
+          <option value="otro">Otro</option>
+        </select>
+      </label>
+      <label>Estado
+        <select name="status">
+          <option value="en_progreso">En progreso</option>
+          <option value="completada">Completada</option>
+          <option value="archivada">Archivada</option>
+        </select>
+      </label>
+    </div>
+    <div class="grid-2">
+      <label>Cliente / empresa
+        <input name="client" maxlength="200">
+      </label>
+      <label>Ubicación
+        <input name="location" maxlength="200">
+      </label>
+    </div>
+    <div class="grid-2">
+      <label>Auditor
+        <input name="auditor" maxlength="200">
+      </label>
+      <label>Fecha de inicio
+        <input name="start_date" type="date">
+      </label>
+    </div>
+    <label>Notas
+      <textarea name="notes" rows="3"></textarea>
+    </label>
+    <label class="check" id="blank-wrap">
+      <input type="checkbox" name="blank"> Crear vacía (sin plantilla de secciones)
+    </label>
+    <div class="dialog-actions">
+      <button type="button" class="btn" data-close>Cancelar</button>
+      <button type="submit" class="btn btn-primary">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<template id="card-tpl">
+  <a class="card audit-card">
+    <div class="card-top">
+      <span class="chip chip-kind" data-kind></span>
+      <span class="chip chip-status" data-status></span>
+    </div>
+    <h3 data-name></h3>
+    <p class="muted" data-sub></p>
+    <div class="progress"><div class="progress-bar" data-bar></div></div>
+    <div class="card-foot">
+      <span data-progress-text></span>
+      <span class="issues" data-issues></span>
+    </div>
+  </a>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script src="static/js/dashboard.js"></script>
+{% endblock %}
