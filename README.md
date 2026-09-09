@@ -7,11 +7,18 @@ proveedores, continuidad y documentación.
 
 - **Plantilla fija + ítems dinámicos**: al crear una auditoría se generan 12
   secciones con sus checklists; luego se añaden/editan/borran secciones e ítems.
+  La vista de auditoría muestra una **barra lateral con los apartados** y, a la
+  derecha, solo los ítems del apartado seleccionado.
 - Cada ítem tiene estado (`pendiente` / `en_progreso` / `ok` / `incidencia` /
   `no_aplica`), severidad, responsable, fecha límite, hallazgos, recomendación y
   **adjuntos** (fotos y documentos).
-- Barras de progreso por sección y por auditoría, filtros, informe imprimible
-  (`/audit/<id>/report`) y exportación JSON.
+- Barras de progreso por sección y por auditoría, filtros e informe imprimible
+  (`/audit/<id>/report?lang=es|en|it`).
+- **Multi-idioma** ES / EN / IT: la interfaz se traduce al vuelo y la preferencia
+  se guarda en el navegador (localStorage, por defecto ES). La plantilla de
+  secciones/ítems se genera en el idioma activo al **crear** la auditoría; el
+  texto que edites después se conserva tal cual y cambiar de idioma no reescribe
+  auditorías ya creadas.
 
 ## Stack
 
@@ -92,10 +99,9 @@ cd /var/www/proyectos-src/it-audit && ./deploy.sh
 | Método | Ruta | Descripción |
 | --- | --- | --- |
 | GET | `/api/audits` | lista de auditorías |
-| POST | `/api/audits` | crear (materializa la plantilla; `{"blank": true}` la omite) |
+| POST | `/api/audits` | crear (materializa la plantilla en `lang` = `es`/`en`/`it`; `{"blank": true}` la omite) |
 | GET | `/api/audits/<id>` | auditoría con secciones e ítems |
 | PATCH / DELETE | `/api/audits/<id>` | editar / borrar |
-| GET | `/api/audits/<id>/export.json` | exportación completa |
 | POST | `/api/sections` | crear sección (`{audit_id, title}`) |
 | PATCH / DELETE | `/api/sections/<id>` | editar / borrar |
 | POST | `/api/items` | crear ítem (`{section_id, title}`) |

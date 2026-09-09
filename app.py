@@ -35,7 +35,7 @@ from models import (
     Section,
     db,
 )
-from template_data import AUDIT_TEMPLATE
+from template_data import DEFAULT_LANG, LANGS, build_template
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -51,6 +51,55 @@ ALLOWED_EXT = {
     "pdf", "txt", "csv", "log", "md",
     "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods",
     "zip", "vsdx", "dwg", "json", "xml",
+}
+
+# Textos del informe imprimible (renderizado en servidor) por idioma.
+REPORT_I18N = {
+    "es": {
+        "report_title": "Informe de auditoría IT", "generated": "Generado",
+        "audit": "Auditoría", "type": "Tipo", "client": "Cliente",
+        "location": "Ubicación", "auditor": "Auditor", "start_date": "Fecha de inicio",
+        "status": "Estado", "progress": "Progreso", "issues": "incidencias",
+        "notes": "Notas", "col_item": "Ítem", "col_status": "Estado", "col_sev": "Sev.",
+        "col_owner": "Responsable", "col_findings": "Hallazgos / recomendación",
+        "no_items": "Sin ítems.", "attachments": "adjunto(s)", "print": "Imprimir / PDF",
+        "kind": {"fabrica": "Fábrica", "oficina": "Oficina", "cpd": "CPD", "otro": "Otro"},
+        "st": {"pendiente": "Pendiente", "en_progreso": "En progreso", "ok": "OK",
+               "incidencia": "Incidencia", "no_aplica": "No aplica"},
+        "sev": {"baja": "Baja", "media": "Media", "alta": "Alta", "critica": "Crítica"},
+        "audit_status": {"en_progreso": "En progreso", "completada": "Completada",
+                         "archivada": "Archivada"},
+    },
+    "en": {
+        "report_title": "IT audit report", "generated": "Generated",
+        "audit": "Audit", "type": "Type", "client": "Client",
+        "location": "Location", "auditor": "Auditor", "start_date": "Start date",
+        "status": "Status", "progress": "Progress", "issues": "issues",
+        "notes": "Notes", "col_item": "Item", "col_status": "Status", "col_sev": "Sev.",
+        "col_owner": "Owner", "col_findings": "Findings / recommendation",
+        "no_items": "No items.", "attachments": "attachment(s)", "print": "Print / PDF",
+        "kind": {"fabrica": "Factory", "oficina": "Office", "cpd": "Data center", "otro": "Other"},
+        "st": {"pendiente": "Pending", "en_progreso": "In progress", "ok": "OK",
+               "incidencia": "Issue", "no_aplica": "N/A"},
+        "sev": {"baja": "Low", "media": "Medium", "alta": "High", "critica": "Critical"},
+        "audit_status": {"en_progreso": "In progress", "completada": "Completed",
+                         "archivada": "Archived"},
+    },
+    "it": {
+        "report_title": "Report di audit IT", "generated": "Generato",
+        "audit": "Audit", "type": "Tipo", "client": "Cliente",
+        "location": "Sede", "auditor": "Auditor", "start_date": "Data di inizio",
+        "status": "Stato", "progress": "Avanzamento", "issues": "problemi",
+        "notes": "Note", "col_item": "Voce", "col_status": "Stato", "col_sev": "Grav.",
+        "col_owner": "Responsabile", "col_findings": "Riscontri / raccomandazione",
+        "no_items": "Nessuna voce.", "attachments": "allegato/i", "print": "Stampa / PDF",
+        "kind": {"fabrica": "Stabilimento", "oficina": "Ufficio", "cpd": "Data center", "otro": "Altro"},
+        "st": {"pendiente": "In sospeso", "en_progreso": "In corso", "ok": "OK",
+               "incidencia": "Problema", "no_aplica": "N/D"},
+        "sev": {"baja": "Bassa", "media": "Media", "alta": "Alta", "critica": "Critica"},
+        "audit_status": {"en_progreso": "In corso", "completada": "Completato",
+                         "archivada": "Archiviato"},
+    },
 }
 
 app = Flask(__name__)
@@ -129,9 +178,14 @@ def audit_report(audit_id):
     audit = db.session.get(Audit, audit_id)
     if audit is None:
         abort(404)
+    lang = request.args.get("lang", DEFAULT_LANG)
+    if lang not in LANGS:
+        lang = DEFAULT_LANG
     return render_template(
         "report.html",
         audit=audit,
+        lang=lang,
+        t=REPORT_I18N[lang],
         generated=datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
     )
 
@@ -174,9 +228,10 @@ def create_audit():
     db.session.add(audit)
     db.session.flush()
 
-    # Materializar la plantilla salvo que se pida vacia.
+    # Materializar la plantilla (en el idioma pedido) salvo que se pida vacia.
     if payload.get("blank") is not True:
-        for s_pos, sec in enumerate(AUDIT_TEMPLATE, start=1):
+        lang = payload.get("lang") if payload.get("lang") in LANGS else DEFAULT_LANG
+        for s_pos, sec in enumerate(build_template(lang), start=1):
             section = Section(
                 audit_id=audit.id,
                 key=sec["key"],
@@ -250,20 +305,6 @@ def delete_audit(audit_id):
         except OSError:
             pass
     return jsonify(ok=True)
-
-
-@app.get("/api/audits/<int:audit_id>/export.json")
-def export_audit(audit_id):
-    audit = db.session.get(Audit, audit_id)
-    if audit is None:
-        abort(404)
-    data = audit.to_dict(deep=True)
-    data["exported_at"] = datetime.utcnow().isoformat()
-    resp = jsonify(data)
-    resp.headers["Content-Disposition"] = (
-        "attachment; filename=auditoria-%d.json" % audit_id
-    )
-    return resp
 
 
 # --------------------------------------------------------------------------- #

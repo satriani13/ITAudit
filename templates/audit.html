@@ -2,21 +2,20 @@
 {% block title %}Auditoría · detalle{% endblock %}
 
 {% block nav %}
-  <a class="btn" href="">← Auditorías</a>
-  <a class="btn" id="report-link" target="_blank">Informe</a>
-  <button class="btn" id="export-btn">Exportar JSON</button>
+  <a class="btn" href="" data-i18n="nav.back">← Auditorías</a>
+  <a class="btn" id="report-link" target="_blank" data-i18n="nav.report">Informe</a>
 {% endblock %}
 
 {% block content %}
 <section class="stack" id="audit-root" data-audit-id="{{ audit_id }}">
   <div class="page-head">
     <div>
-      <h1 id="audit-name">Cargando…</h1>
+      <h1 id="audit-name" data-i18n="audit.loading">Cargando…</h1>
       <p class="muted" id="audit-sub"></p>
     </div>
     <div class="head-actions">
-      <button class="btn" id="edit-audit-btn">Editar datos</button>
-      <button class="btn btn-danger" id="delete-audit-btn">Eliminar</button>
+      <button class="btn" id="edit-audit-btn" data-i18n="audit.edit_data">Editar datos</button>
+      <button class="btn btn-danger" id="delete-audit-btn" data-i18n="action.delete">Eliminar</button>
     </div>
   </div>
 
@@ -29,121 +28,133 @@
   </div>
 
   <div class="filters">
-    <input type="search" id="item-search" placeholder="Filtrar ítems…" autocomplete="off">
+    <input type="search" id="item-search" data-i18n-ph="filter.search_items" autocomplete="off">
     <select id="item-status-filter">
-      <option value="">Todos los estados</option>
-      <option value="pendiente">Pendiente</option>
-      <option value="en_progreso">En progreso</option>
-      <option value="ok">OK</option>
-      <option value="incidencia">Incidencia</option>
-      <option value="no_aplica">No aplica</option>
+      <option value="" data-i18n="filter.all_status">Todos los estados</option>
+      <option value="pendiente" data-i18n="status.pendiente">Pendiente</option>
+      <option value="en_progreso" data-i18n="status.en_progreso">En progreso</option>
+      <option value="ok" data-i18n="status.ok">OK</option>
+      <option value="incidencia" data-i18n="status.incidencia">Incidencia</option>
+      <option value="no_aplica" data-i18n="status.no_aplica">No aplica</option>
     </select>
     <select id="item-sev-filter">
-      <option value="">Cualquier severidad</option>
-      <option value="baja">Baja</option>
-      <option value="media">Media</option>
-      <option value="alta">Alta</option>
-      <option value="critica">Crítica</option>
+      <option value="" data-i18n="filter.any_severity">Cualquier severidad</option>
+      <option value="baja" data-i18n="sev.baja">Baja</option>
+      <option value="media" data-i18n="sev.media">Media</option>
+      <option value="alta" data-i18n="sev.alta">Alta</option>
+      <option value="critica" data-i18n="sev.critica">Crítica</option>
     </select>
-    <button class="btn" id="add-section-btn">+ Sección</button>
   </div>
 
-  <div id="sections"></div>
+  <div class="audit-body">
+    <nav class="section-nav">
+      <div class="snav-list" id="snav-list"></div>
+      <button class="btn btn-sm snav-add" id="add-section-btn" data-i18n="action.add_section">+ Sección</button>
+    </nav>
+    <div class="section-pane" id="section-pane"></div>
+  </div>
 </section>
 
 <dialog id="audit-dialog" class="dialog">
   <form method="dialog" id="audit-form">
-    <h2>Editar auditoría</h2>
-    <label>Nombre *
+    <h2 data-i18n="dialog.edit_title">Editar auditoría</h2>
+    <label><span data-i18n="field.name">Nombre</span> *
       <input name="name" required maxlength="200">
     </label>
     <div class="grid-2">
-      <label>Tipo
+      <label><span data-i18n="field.kind">Tipo</span>
         <select name="kind">
-          <option value="fabrica">Fábrica</option>
-          <option value="oficina">Oficina</option>
-          <option value="cpd">CPD</option>
-          <option value="otro">Otro</option>
+          <option value="fabrica" data-i18n="kind.fabrica">Fábrica</option>
+          <option value="oficina" data-i18n="kind.oficina">Oficina</option>
+          <option value="cpd" data-i18n="kind.cpd">CPD</option>
+          <option value="otro" data-i18n="kind.otro">Otro</option>
         </select>
       </label>
-      <label>Estado
+      <label><span data-i18n="field.status">Estado</span>
         <select name="status">
-          <option value="en_progreso">En progreso</option>
-          <option value="completada">Completada</option>
-          <option value="archivada">Archivada</option>
+          <option value="en_progreso" data-i18n="status.en_progreso">En progreso</option>
+          <option value="completada" data-i18n="status.completada">Completada</option>
+          <option value="archivada" data-i18n="status.archivada">Archivada</option>
         </select>
       </label>
     </div>
     <div class="grid-2">
-      <label>Cliente / empresa<input name="client" maxlength="200"></label>
-      <label>Ubicación<input name="location" maxlength="200"></label>
+      <label><span data-i18n="field.client">Cliente / empresa</span><input name="client" maxlength="200"></label>
+      <label><span data-i18n="field.location">Ubicación</span><input name="location" maxlength="200"></label>
     </div>
     <div class="grid-2">
-      <label>Auditor<input name="auditor" maxlength="200"></label>
-      <label>Fecha de inicio<input name="start_date" type="date"></label>
+      <label><span data-i18n="field.auditor">Auditor</span><input name="auditor" maxlength="200"></label>
+      <label><span data-i18n="field.start_date">Fecha de inicio</span><input name="start_date" type="date"></label>
     </div>
-    <label>Notas<textarea name="notes" rows="3"></textarea></label>
+    <label><span data-i18n="field.notes">Notas</span><textarea name="notes" rows="3"></textarea></label>
     <div class="dialog-actions">
-      <button type="button" class="btn" data-close>Cancelar</button>
-      <button type="submit" class="btn btn-primary">Guardar</button>
+      <button type="button" class="btn" data-close data-i18n="action.cancel">Cancelar</button>
+      <button type="submit" class="btn btn-primary" data-i18n="action.save">Guardar</button>
     </div>
   </form>
 </dialog>
 
-<template id="section-tpl">
-  <section class="section" data-section-id>
-    <header class="section-head">
-      <button class="section-toggle" aria-expanded="true">▾</button>
+<template id="snav-item-tpl">
+  <button class="snav-item" data-section-id>
+    <span class="snav-title" data-title></span>
+    <span class="snav-meta">
+      <span class="progress mini"><span class="progress-bar" data-bar></span></span>
+      <span data-count></span>
+    </span>
+  </button>
+</template>
+
+<template id="section-pane-tpl">
+  <div class="pane-inner">
+    <div class="pane-head">
       <h2 class="section-title" data-title></h2>
-      <div class="progress mini"><div class="progress-bar" data-bar></div></div>
-      <span class="section-count" data-count></span>
-      <div class="section-actions">
-        <button class="icon-btn" data-act="add-item" title="Añadir ítem">+</button>
-        <button class="icon-btn" data-act="edit-section" title="Editar sección">✎</button>
-        <button class="icon-btn" data-act="del-section" title="Eliminar sección">🗑</button>
+      <div class="pane-actions">
+        <button class="btn btn-sm" data-act="add-item" data-i18n="section.add_item">+ Ítem</button>
+        <button class="icon-btn" data-act="edit-section" data-i18n-title="section.edit">✎</button>
+        <button class="icon-btn" data-act="del-section" data-i18n-title="section.delete">🗑</button>
       </div>
-    </header>
+    </div>
     <p class="section-desc muted" data-desc></p>
     <div class="items" data-items></div>
-  </section>
+  </div>
 </template>
 
 <template id="item-tpl">
   <article class="item" data-item-id>
     <div class="item-row">
       <select class="item-status" data-field="status">
-        <option value="pendiente">Pendiente</option>
-        <option value="en_progreso">En progreso</option>
-        <option value="ok">OK</option>
-        <option value="incidencia">Incidencia</option>
-        <option value="no_aplica">No aplica</option>
+        <option value="pendiente" data-i18n="status.pendiente">Pendiente</option>
+        <option value="en_progreso" data-i18n="status.en_progreso">En progreso</option>
+        <option value="ok" data-i18n="status.ok">OK</option>
+        <option value="incidencia" data-i18n="status.incidencia">Incidencia</option>
+        <option value="no_aplica" data-i18n="status.no_aplica">No aplica</option>
       </select>
-      <input class="item-title" data-field="title" placeholder="Título del ítem">
+      <input class="item-title" data-field="title" data-i18n-ph="item.new_placeholder">
       <select class="item-sev" data-field="severity">
-        <option value="baja">Baja</option>
-        <option value="media">Media</option>
-        <option value="alta">Alta</option>
-        <option value="critica">Crítica</option>
+        <option value="baja" data-i18n="sev.baja">Baja</option>
+        <option value="media" data-i18n="sev.media">Media</option>
+        <option value="alta" data-i18n="sev.alta">Alta</option>
+        <option value="critica" data-i18n="sev.critica">Crítica</option>
       </select>
-      <button class="icon-btn" data-act="expand" title="Detalles">⋯</button>
-      <button class="icon-btn" data-act="del-item" title="Eliminar ítem">🗑</button>
+      <button class="icon-btn" data-act="expand" data-i18n-title="item.details">⋯</button>
+      <button class="icon-btn" data-act="del-item" data-i18n-title="item.delete">🗑</button>
     </div>
     <div class="item-detail" hidden>
       <div class="grid-2">
-        <label>Responsable<input data-field="assignee" maxlength="200"></label>
-        <label>Fecha límite<input data-field="due_date" type="date"></label>
+        <label><span data-i18n="field.assignee">Responsable</span><input data-field="assignee" maxlength="200"></label>
+        <label><span data-i18n="field.due_date">Fecha límite</span><input data-field="due_date" type="date"></label>
       </div>
-      <label>Descripción<textarea data-field="description" rows="2"></textarea></label>
-      <label>Hallazgos<textarea data-field="findings" rows="2"></textarea></label>
-      <label>Recomendación<textarea data-field="recommendation" rows="2"></textarea></label>
+      <label><span data-i18n="field.description">Descripción</span><textarea data-field="description" rows="2"></textarea></label>
+      <label><span data-i18n="field.findings">Hallazgos</span><textarea data-field="findings" rows="2"></textarea></label>
+      <label><span data-i18n="field.recommendation">Recomendación</span><textarea data-field="recommendation" rows="2"></textarea></label>
       <div class="attachments">
         <div class="attach-head">
-          <strong>Adjuntos</strong>
+          <strong data-i18n="attach.title">Adjuntos</strong>
           <label class="btn btn-sm">
-            + Añadir<input type="file" class="attach-input" hidden multiple>
+            <span data-i18n="attach.add">+ Añadir</span><input type="file" class="attach-input" hidden multiple>
           </label>
         </div>
-        <div class="attach-drop" data-drop>Arrastra aquí fotos o documentos</div>
+        <div class="attach-drop" data-drop data-i18n="attach.drop">Arrastra aquí fotos o documentos</div>
         <div class="attach-list" data-attach-list></div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 "use strict";
 
+const T = window.I18N.t;
 // Ruta base del documento (respeta el <base href> inyectado por Flask).
 const API = new URL("api/", document.baseURI).href;
 
@@ -13,9 +14,6 @@ const dialogTitle = document.getElementById("dialog-title");
 const toast = document.getElementById("toast");
 
 let audits = [];
-
-const KIND_LABEL = { fabrica: "Fábrica", oficina: "Oficina", cpd: "CPD", otro: "Otro" };
-const STATUS_LABEL = { en_progreso: "En progreso", completada: "Completada", archivada: "Archivada" };
 
 function notify(msg, isErr) {
   toast.textContent = msg;
@@ -37,7 +35,7 @@ async function load() {
     audits = await api("audits");
     render();
   } catch (e) {
-    notify("No se pudieron cargar las auditorías: " + e.message, true);
+    notify(T("err.load_audits") + ": " + e.message, true);
   }
 }
 
@@ -55,28 +53,27 @@ function render() {
 
   emptyBox.hidden = audits.length !== 0;
   if (audits.length && !list.length) {
-    grid.innerHTML = '<p class="muted">Sin resultados para el filtro.</p>';
+    grid.innerHTML = '<p class="muted">' + T("filter.no_results") + "</p>";
     return;
   }
 
   for (const a of list) {
     const node = tpl.content.firstElementChild.cloneNode(true);
     node.href = new URL("audit/" + a.id, document.baseURI).href;
-    const kind = node.querySelector("[data-kind]");
-    kind.textContent = KIND_LABEL[a.kind] || a.kind;
+    node.querySelector("[data-kind]").textContent = T("kind." + a.kind);
     const status = node.querySelector("[data-status]");
-    status.textContent = STATUS_LABEL[a.status] || a.status;
+    status.textContent = T("status." + a.status);
     status.dataset.v = a.status;
     node.querySelector("[data-name]").textContent = a.name;
     node.querySelector("[data-sub]").textContent =
-      [a.client, a.location].filter(Boolean).join(" · ") || "Sin datos de cliente";
+      [a.client, a.location].filter(Boolean).join(" · ") || T("card.no_client");
     const bar = node.querySelector("[data-bar]");
     bar.style.width = a.progress.pct + "%";
     if (a.progress.pct === 100) bar.dataset.full = "1";
     node.querySelector("[data-progress-text]").textContent =
-      `${a.progress.done}/${a.progress.total} ítems (${a.progress.pct}%)`;
+      `${a.progress.done}/${a.progress.total} ${T("card.items")} (${a.progress.pct}%)`;
     node.querySelector("[data-issues]").textContent = a.issues
-      ? `${a.issues} incidencia${a.issues > 1 ? "s" : ""}`
+      ? `${a.issues} ${a.issues > 1 ? T("card.issue_many") : T("card.issue_one")}`
       : "";
     grid.appendChild(node);
   }
@@ -85,7 +82,7 @@ function render() {
 function openDialog() {
   form.reset();
   form.id.value = "";
-  dialogTitle.textContent = "Nueva auditoría";
+  if (dialogTitle) dialogTitle.textContent = T("dialog.new_title");
   document.getElementById("blank-wrap").hidden = false;
   dialog.showModal();
 }
@@ -95,6 +92,7 @@ form.addEventListener("submit", async (ev) => {
   const fd = new FormData(form);
   const payload = Object.fromEntries(fd.entries());
   payload.blank = fd.get("blank") === "on";
+  payload.lang = window.I18N.currentLang();
   try {
     const created = await api("audits", {
       method: "POST",
@@ -102,7 +100,7 @@ form.addEventListener("submit", async (ev) => {
       body: JSON.stringify(payload),
     });
     dialog.close();
-    notify("Auditoría creada");
+    notify(T("toast.audit_created"));
     location.href = new URL("audit/" + created.id, document.baseURI).href;
   } catch (e) {
     notify(e.message, true);

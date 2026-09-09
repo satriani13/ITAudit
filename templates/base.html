@@ -14,12 +14,34 @@
   <header class="topbar">
     <a class="brand" href="">
       <span class="brand-mark">IT</span>
-      <span class="brand-text">Auditoría IT</span>
+      <span class="brand-text" data-i18n="app.title">Auditoría IT</span>
     </a>
-    <nav class="topbar-nav">{% block nav %}{% endblock %}</nav>
+    <div class="topbar-right">
+      <nav class="topbar-nav">{% block nav %}{% endblock %}</nav>
+      <select id="lang-select" class="lang-select" aria-label="Idioma / Language / Lingua">
+        <option value="es">ES</option>
+        <option value="en">EN</option>
+        <option value="it">IT</option>
+      </select>
+    </div>
   </header>
   <main class="page">{% block content %}{% endblock %}</main>
   <div id="toast" class="toast" hidden></div>
+
+  <script src="static/js/i18n.js"></script>
+  <script>
+    (function () {
+      var sel = document.getElementById("lang-select");
+      var lang = window.I18N.currentLang();
+      document.documentElement.lang = lang;
+      sel.value = lang;
+      window.I18N.apply(document);
+      sel.addEventListener("change", function () {
+        window.I18N.setLang(sel.value);
+        location.reload();
+      });
+    })();
+  </script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

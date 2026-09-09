@@ -1,11 +1,15 @@
 "use strict";
 
+const T = window.I18N.t;
+
 const root = document.getElementById("audit-root");
 const AUDIT_ID = root.dataset.auditId;
 const API = new URL("api/", document.baseURI).href;
+const ACTIVE_KEY = "itaudit_active_" + AUDIT_ID;
 
 const toast = document.getElementById("toast");
-const sectionsBox = document.getElementById("sections");
+const snavList = document.getElementById("snav-list");
+const pane = document.getElementById("section-pane");
 const dialog = document.getElementById("audit-dialog");
 const form = document.getElementById("audit-form");
 
@@ -20,9 +24,18 @@ const itemStatusFilter = document.getElementById("item-status-filter");
 const itemSevFilter = document.getElementById("item-sev-filter");
 
 let audit = null;
+let activeSectionId = null;
+try {
+  const s = parseInt(localStorage.getItem(ACTIVE_KEY), 10);
+  if (!isNaN(s)) activeSectionId = s;
+} catch (e) {}
 
-const KIND_LABEL = { fabrica: "Fábrica", oficina: "Oficina", cpd: "CPD", otro: "Otro" };
-const STATUS_LABEL = { en_progreso: "En progreso", completada: "Completada", archivada: "Archivada" };
+function setActive(id) {
+  activeSectionId = id;
+  try {
+    localStorage.setItem(ACTIVE_KEY, String(id));
+  } catch (e) {}
+}
 
 function notify(msg, isErr) {
   toast.textContent = msg;
@@ -55,7 +68,7 @@ function savePatch(kind, id, field, value, redraw) {
           body: JSON.stringify({ [field]: value }),
         });
         if (redraw) await load();
-        else notify("Guardado");
+        else notify(T("toast.saved"));
       } catch (e) {
         notify(e.message, true);
       }
@@ -66,28 +79,42 @@ function savePatch(kind, id, field, value, redraw) {
 async function load() {
   try {
     audit = await api("audits/" + AUDIT_ID);
-    renderHead();
-    renderSections();
   } catch (e) {
-    notify("No se pudo cargar la auditoría: " + e.message, true);
+    notify(T("err.load_audit") + ": " + e.message, true);
+    return;
   }
+  if (!audit.sections.some((s) => s.id === activeSectionId)) {
+    setActive(audit.sections.length ? audit.sections[0].id : null);
+  }
+  renderHead();
+  renderSectionNav();
+  renderActivePane();
 }
 
 function renderHead() {
   document.title = "Auditoría · " + audit.name;
   nameEl.textContent = audit.name;
-  subEl.textContent =
-    [KIND_LABEL[audit.kind] || audit.kind, STATUS_LABEL[audit.status] || audit.status,
-     audit.client, audit.location, audit.auditor && "Auditor: " + audit.auditor,
-     audit.start_date && "Inicio: " + audit.start_date]
-      .filter(Boolean).join("  ·  ");
+  subEl.textContent = [
+    T("kind." + audit.kind),
+    T("status." + audit.status),
+    audit.client,
+    audit.location,
+    audit.auditor && T("field.auditor") + ": " + audit.auditor,
+    audit.start_date && T("field.start_date") + ": " + audit.start_date,
+  ]
+    .filter(Boolean)
+    .join("  ·  ");
   const p = audit.progress;
   overallBar.style.width = p.pct + "%";
   overallBar.dataset.full = p.pct === 100 ? "1" : "";
-  overallText.textContent = `${p.done}/${p.total} ítems completados (${p.pct}%)`;
-  overallIssues.textContent = audit.issues ? `${audit.issues} incidencia${audit.issues > 1 ? "s" : ""}` : "";
-
-  document.getElementById("report-link").href = new URL("audit/" + AUDIT_ID + "/report", document.baseURI).href;
+  overallText.textContent = T("audit.completed_items", { done: p.done, total: p.total, pct: p.pct });
+  overallIssues.textContent = audit.issues
+    ? `${audit.issues} ${audit.issues > 1 ? T("card.issue_many") : T("card.issue_one")}`
+    : "";
+  document.getElementById("report-link").href = new URL(
+    "audit/" + AUDIT_ID + "/report?lang=" + window.I18N.currentLang(),
+    document.baseURI
+  ).href;
 }
 
 function itemVisible(item) {
@@ -98,48 +125,71 @@ function itemVisible(item) {
   return true;
 }
 
-function renderSections() {
-  const secTpl = document.getElementById("section-tpl");
-  const itemTpl = document.getElementById("item-tpl");
-  sectionsBox.innerHTML = "";
-
+function renderSectionNav() {
+  const tpl = document.getElementById("snav-item-tpl");
+  snavList.innerHTML = "";
   audit.sections.forEach((section, idx) => {
-    const node = secTpl.content.firstElementChild.cloneNode(true);
+    const node = tpl.content.firstElementChild.cloneNode(true);
     node.dataset.sectionId = section.id;
-    const titleEl = node.querySelector("[data-title]");
-    titleEl.textContent = `${idx + 1}. ${section.title}`;
-    node.querySelector("[data-desc]").textContent = section.description || "";
+    if (section.id === activeSectionId) node.classList.add("active");
+    node.querySelector("[data-title]").textContent = `${idx + 1}. ${section.title}`;
     const bar = node.querySelector("[data-bar]");
     bar.style.width = section.progress.pct + "%";
     bar.dataset.full = section.progress.pct === 100 ? "1" : "";
     node.querySelector("[data-count]").textContent =
       `${section.progress.done}/${section.progress.total}`;
-
-    node.querySelector(".section-toggle").addEventListener("click", () =>
-      node.classList.toggle("collapsed")
-    );
-
-    node.querySelector('[data-act="add-item"]').addEventListener("click", () => addItem(section.id));
-    node.querySelector('[data-act="edit-section"]').addEventListener("click", () => editSection(section));
-    node.querySelector('[data-act="del-section"]').addEventListener("click", () => delSection(section));
-
-    const itemsBox = node.querySelector("[data-items]");
-    const visibleItems = section.items.filter(itemVisible);
-    if (!visibleItems.length) {
-      const p = document.createElement("p");
-      p.className = "muted";
-      p.style.padding = "0 .3rem";
-      p.textContent = section.items.length ? "Ningún ítem coincide con el filtro." : "Sin ítems todavía.";
-      itemsBox.appendChild(p);
-    }
-    visibleItems.forEach((item) => itemsBox.appendChild(buildItem(itemTpl, item)));
-
-    sectionsBox.appendChild(node);
+    node.addEventListener("click", () => {
+      if (section.id === activeSectionId) return;
+      setActive(section.id);
+      renderSectionNav();
+      renderActivePane();
+    });
+    snavList.appendChild(node);
   });
+}
+
+function renderActivePane() {
+  pane.innerHTML = "";
+  const section = audit.sections.find((s) => s.id === activeSectionId);
+  if (!section) {
+    const p = document.createElement("p");
+    p.className = "muted";
+    p.textContent = T("section.pick");
+    pane.appendChild(p);
+    return;
+  }
+
+  const tpl = document.getElementById("section-pane-tpl");
+  const node = tpl.content.firstElementChild.cloneNode(true);
+  window.I18N.apply(node);
+
+  const idx = audit.sections.indexOf(section);
+  node.querySelector("[data-title]").textContent = `${idx + 1}. ${section.title}`;
+  const desc = node.querySelector("[data-desc]");
+  desc.textContent = section.description || "";
+  desc.hidden = !section.description;
+
+  node.querySelector('[data-act="add-item"]').addEventListener("click", () => addItem(section.id));
+  node.querySelector('[data-act="edit-section"]').addEventListener("click", () => editSection(section));
+  node.querySelector('[data-act="del-section"]').addEventListener("click", () => delSection(section));
+
+  const itemsBox = node.querySelector("[data-items]");
+  const itemTpl = document.getElementById("item-tpl");
+  const visibleItems = section.items.filter(itemVisible);
+  if (!visibleItems.length) {
+    const p = document.createElement("p");
+    p.className = "muted";
+    p.textContent = section.items.length ? T("section.no_items_filter") : T("section.no_items");
+    itemsBox.appendChild(p);
+  }
+  visibleItems.forEach((item) => itemsBox.appendChild(buildItem(itemTpl, item)));
+
+  pane.appendChild(node);
 }
 
 function buildItem(itemTpl, item) {
   const node = itemTpl.content.firstElementChild.cloneNode(true);
+  window.I18N.apply(node);
   node.dataset.itemId = item.id;
   node.dataset.status = item.status;
 
@@ -159,7 +209,7 @@ function buildItem(itemTpl, item) {
     d.hidden = !d.hidden;
   });
   node.querySelector('[data-act="del-item"]').addEventListener("click", async () => {
-    if (!confirm("¿Eliminar este ítem?")) return;
+    if (!confirm(T("confirm.del_item"))) return;
     try {
       await api("items/" + item.id, { method: "DELETE" });
       await load();
@@ -220,7 +270,6 @@ function renderAttachments(box, attachments) {
     const del = document.createElement("button");
     del.className = "att-del";
     del.textContent = "×";
-    del.title = "Eliminar adjunto";
     del.addEventListener("click", async () => {
       try {
         await api("attachments/" + att.id, { method: "DELETE" });
@@ -242,7 +291,6 @@ async function uploadFiles(itemId, fileList, listBox) {
     fd.append("file", file);
     try {
       const att = await api(`items/${itemId}/attachments`, { method: "POST", body: fd });
-      // Recargar la lista de adjuntos de ese ítem.
       const item = findItem(itemId);
       if (item) {
         item.attachments.push(att);
@@ -252,7 +300,7 @@ async function uploadFiles(itemId, fileList, listBox) {
       notify(`"${file.name}": ${e.message}`, true);
     }
   }
-  notify("Adjunto(s) subido(s)");
+  notify(T("attach.uploaded"));
 }
 
 function findItem(id) {
@@ -264,7 +312,7 @@ function findItem(id) {
 }
 
 async function addItem(sectionId) {
-  const title = prompt("Título del nuevo ítem:");
+  const title = prompt(T("prompt.new_item"));
   if (!title || !title.trim()) return;
   try {
     await api("items", {
@@ -279,9 +327,9 @@ async function addItem(sectionId) {
 }
 
 async function editSection(section) {
-  const title = prompt("Título de la sección:", section.title);
+  const title = prompt(T("prompt.section_title"), section.title);
   if (title === null) return;
-  const description = prompt("Descripción (opcional):", section.description || "");
+  const description = prompt(T("prompt.section_desc"), section.description || "");
   try {
     await api("sections/" + section.id, {
       method: "PATCH",
@@ -295,9 +343,10 @@ async function editSection(section) {
 }
 
 async function delSection(section) {
-  if (!confirm(`¿Eliminar la sección "${section.title}" y todos sus ítems?`)) return;
+  if (!confirm(T("confirm.del_section", { title: section.title }))) return;
   try {
     await api("sections/" + section.id, { method: "DELETE" });
+    if (section.id === activeSectionId) activeSectionId = null;
     await load();
   } catch (e) {
     notify(e.message, true);
@@ -305,14 +354,15 @@ async function delSection(section) {
 }
 
 document.getElementById("add-section-btn").addEventListener("click", async () => {
-  const title = prompt("Título de la nueva sección:");
+  const title = prompt(T("prompt.new_section"));
   if (!title || !title.trim()) return;
   try {
-    await api("sections", {
+    const sec = await api("sections", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ audit_id: Number(AUDIT_ID), title: title.trim() }),
     });
+    if (sec && sec.id) setActive(sec.id);
     await load();
   } catch (e) {
     notify(e.message, true);
@@ -320,7 +370,7 @@ document.getElementById("add-section-btn").addEventListener("click", async () =>
 });
 
 [itemSearch, itemStatusFilter, itemSevFilter].forEach((el) =>
-  el.addEventListener("input", renderSections)
+  el.addEventListener("input", renderActivePane)
 );
 
 // --- Editar datos de la auditoría ---
@@ -342,7 +392,7 @@ form.addEventListener("submit", async (ev) => {
       body: JSON.stringify(payload),
     });
     dialog.close();
-    notify("Auditoría actualizada");
+    notify(T("toast.audit_updated"));
     await load();
   } catch (e) {
     notify(e.message, true);
@@ -354,17 +404,13 @@ dialog.addEventListener("click", (ev) => {
 });
 
 document.getElementById("delete-audit-btn").addEventListener("click", async () => {
-  if (!confirm("¿Eliminar toda la auditoría? Esta acción no se puede deshacer.")) return;
+  if (!confirm(T("confirm.del_audit"))) return;
   try {
     await api("audits/" + AUDIT_ID, { method: "DELETE" });
     location.href = document.baseURI;
   } catch (e) {
     notify(e.message, true);
   }
-});
-
-document.getElementById("export-btn").addEventListener("click", () => {
-  window.location.href = new URL("api/audits/" + AUDIT_ID + "/export.json", document.baseURI).href;
 });
 
 load();
