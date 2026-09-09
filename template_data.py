@@ -444,16 +444,67 @@ _SECTIONS = [
 ]
 
 
+def _item_tkey(section_key, index_1based):
+    return "%s::%d" % (section_key, index_1based)
+
+
 def build_template(lang=DEFAULT_LANG):
-    """Devuelve la plantilla de secciones/ítems traducida al idioma pedido."""
+    """Plantilla de secciones/ítems traducida, con `tkey` de plantilla en cada fila."""
     if lang not in LANGS:
         lang = DEFAULT_LANG
     result = []
     for section in _SECTIONS:
         result.append({
             "key": section["key"],
+            "tkey": section["key"],
             "title": section["title"][lang],
             "description": section["description"][lang],
-            "items": [item[lang] for item in section["items"]],
+            "items": [
+                {"tkey": _item_tkey(section["key"], i), "title": item[lang]}
+                for i, item in enumerate(section["items"], start=1)
+            ],
         })
     return result
+
+
+# Índices de traducción por clave de plantilla, para localizar al vuelo el
+# contenido de auditorías ya creadas cuando se cambia el idioma de la interfaz.
+SECTION_I18N = {}   # lang -> { section_key -> {"title":..., "description":...} }
+ITEM_I18N = {}      # lang -> { item_tkey -> title }
+for _lang in LANGS:
+    SECTION_I18N[_lang] = {}
+    ITEM_I18N[_lang] = {}
+    for _s in _SECTIONS:
+        SECTION_I18N[_lang][_s["key"]] = {
+            "title": _s["title"][_lang],
+            "description": _s["description"][_lang],
+        }
+        for _i, _it in enumerate(_s["items"], start=1):
+            ITEM_I18N[_lang][_item_tkey(_s["key"], _i)] = _it[_lang]
+
+# Texto de plantilla (cualquier idioma) -> tkey de ítem, para el backfill de
+# auditorías creadas antes de existir la columna `tkey`.
+ITEM_TEXT_TO_TKEY = {}
+SECTION_KEYS = set()
+# Conjuntos de todas las traducciones, para decidir si un "edit" es texto nuevo
+# de verdad o solo el mismo contenido de plantilla en otro idioma.
+SECTION_TITLE_SET = {}   # section_key -> {títulos en todos los idiomas}
+SECTION_DESC_SET = {}    # section_key -> {descripciones en todos los idiomas}
+ITEM_TITLE_SET = {}      # item_tkey  -> {títulos en todos los idiomas}
+for _s in _SECTIONS:
+    SECTION_KEYS.add(_s["key"])
+    SECTION_TITLE_SET[_s["key"]] = {_s["title"][_l].strip() for _l in LANGS}
+    SECTION_DESC_SET[_s["key"]] = {_s["description"][_l].strip() for _l in LANGS}
+    for _i, _it in enumerate(_s["items"], start=1):
+        _tk = _item_tkey(_s["key"], _i)
+        ITEM_TITLE_SET[_tk] = {_it[_l].strip() for _l in LANGS}
+        for _lang in LANGS:
+            ITEM_TEXT_TO_TKEY.setdefault(_it[_lang].strip(), _tk)
+
+
+def section_text(section_key, lang):
+    return SECTION_I18N.get(lang, {}).get(section_key)
+
+
+def item_text(item_tkey, lang):
+    return ITEM_I18N.get(lang, {}).get(item_tkey)

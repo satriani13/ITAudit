@@ -35,7 +35,18 @@ from models import (
     Section,
     db,
 )
-from template_data import DEFAULT_LANG, LANGS, build_template
+from template_data import (
+    DEFAULT_LANG,
+    ITEM_TEXT_TO_TKEY,
+    ITEM_TITLE_SET,
+    LANGS,
+    SECTION_DESC_SET,
+    SECTION_KEYS,
+    SECTION_TITLE_SET,
+    build_template,
+    item_text,
+    section_text,
+)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -108,13 +119,67 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
 db.init_app(app)
 
+def _ensure_schema():
+    """Añade la columna `tkey` a bases de datos creadas antes de que existiera."""
+    with app.app_context():
+        con = db.engine.connect()
+        try:
+            for table in ("sections", "items"):
+                cols = [row[1] for row in con.exec_driver_sql(
+                    "PRAGMA table_info(%s)" % table
+                )]
+                if "tkey" not in cols:
+                    con.exec_driver_sql(
+                        "ALTER TABLE %s ADD COLUMN tkey VARCHAR(80)" % table
+                    )
+            con.commit()
+        finally:
+            con.close()
+
+
+def _backfill_tkeys():
+    """Marca como 'de plantilla' las secciones/ítems existentes que aún coincidan
+    con la plantilla (en cualquier idioma), para que sigan el cambio de idioma."""
+    with app.app_context():
+        changed = False
+        for section in Section.query.filter(Section.tkey.is_(None)).all():
+            if section.key in SECTION_KEYS:
+                section.tkey = section.key
+                changed = True
+        for item in Item.query.filter(Item.tkey.is_(None)).all():
+            tkey = ITEM_TEXT_TO_TKEY.get((item.title or "").strip())
+            if tkey:
+                item.tkey = tkey
+                changed = True
+        if changed:
+            db.session.commit()
+
+
 with app.app_context():
     db.create_all()
+_ensure_schema()
+_backfill_tkeys()
 
 
 # --------------------------------------------------------------------------- #
 #  Helpers
 # --------------------------------------------------------------------------- #
+def _localize_audit_dict(data, lang):
+    """Sustituye título/descripción de secciones e ítems 'de plantilla' (con
+    `tkey`) por su traducción al idioma pedido. El contenido propio no se toca."""
+    if lang not in LANGS:
+        return data
+    for sec in data.get("sections", []):
+        st = section_text(sec.get("tkey"), lang) if sec.get("tkey") else None
+        if st:
+            sec["title"] = st["title"]
+            sec["description"] = st["description"]
+        for it in sec.get("items", []):
+            tx = item_text(it.get("tkey"), lang) if it.get("tkey") else None
+            if tx:
+                it["title"] = tx
+    return data
+
 @app.context_processor
 def inject_base():
     # En las plantillas: <base href="{{ base }}/">  (base == "" en local)
@@ -181,9 +246,35 @@ def audit_report(audit_id):
     lang = request.args.get("lang", DEFAULT_LANG)
     if lang not in LANGS:
         lang = DEFAULT_LANG
+
+    # Vista de secciones/ítems ya traducida (las filas de plantilla siguen el idioma).
+    sections_vm = []
+    for section in audit.sections:
+        st = section_text(section.tkey, lang) if section.tkey else None
+        items_vm = []
+        for item in section.items:
+            tx = item_text(item.tkey, lang) if item.tkey else None
+            items_vm.append({
+                "title": tx or item.title,
+                "description": item.description,
+                "status": item.status,
+                "severity": item.severity,
+                "assignee": item.assignee,
+                "findings": item.findings,
+                "recommendation": item.recommendation,
+                "attachments": item.attachments,
+            })
+        sections_vm.append({
+            "title": st["title"] if st else section.title,
+            "description": st["description"] if st else section.description,
+            "progress": section.progress(),
+            "items": items_vm,
+        })
+
     return render_template(
         "report.html",
         audit=audit,
+        sections=sections_vm,
         lang=lang,
         t=REPORT_I18N[lang],
         generated=datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
@@ -235,16 +326,20 @@ def create_audit():
             section = Section(
                 audit_id=audit.id,
                 key=sec["key"],
+                tkey=sec["tkey"],
                 title=sec["title"],
                 description=sec.get("description", ""),
                 position=s_pos,
             )
             db.session.add(section)
             db.session.flush()
-            for i_pos, title in enumerate(sec.get("items", []), start=1):
-                db.session.add(
-                    Item(section_id=section.id, title=title, position=i_pos)
-                )
+            for i_pos, it in enumerate(sec.get("items", []), start=1):
+                db.session.add(Item(
+                    section_id=section.id,
+                    tkey=it["tkey"],
+                    title=it["title"],
+                    position=i_pos,
+                ))
 
     db.session.commit()
     return jsonify(audit.to_dict(deep=True)), 201
@@ -255,7 +350,8 @@ def get_audit(audit_id):
     audit = db.session.get(Audit, audit_id)
     if audit is None:
         abort(404)
-    return jsonify(audit.to_dict(deep=True))
+    lang = request.args.get("lang", DEFAULT_LANG)
+    return jsonify(_localize_audit_dict(audit.to_dict(deep=True), lang))
 
 
 @app.patch("/api/audits/<int:audit_id>")
@@ -338,11 +434,22 @@ def update_section(section_id):
     if section is None:
         abort(404)
     payload = request.get_json(force=True, silent=True) or {}
-    _apply_fields(
-        section,
-        payload,
-        {"title": (200, None), "description": (None, None), "key": (60, None)},
-    )
+    if (
+        _apply_fields(
+            section,
+            payload,
+            {"title": (200, None), "description": (None, None), "key": (60, None)},
+        )
+        and ("title" in payload or "description" in payload)
+        and section.tkey
+        and not (
+            (section.title or "").strip() in SECTION_TITLE_SET.get(section.tkey, ())
+            and (section.description or "").strip() in SECTION_DESC_SET.get(section.tkey, ())
+        )
+    ):
+        # Texto realmente nuevo (no es la misma plantilla en otro idioma):
+        # deja de ser una sección "de plantilla".
+        section.tkey = None
     if "position" in payload:
         try:
             section.position = int(payload["position"])
@@ -406,7 +513,7 @@ def update_item(item_id):
     if item is None:
         abort(404)
     payload = request.get_json(force=True, silent=True) or {}
-    _apply_fields(
+    if _apply_fields(
         item,
         payload,
         {
@@ -419,7 +526,11 @@ def update_item(item_id):
             "status": (20, ITEM_STATUS),
             "severity": (20, ITEM_SEVERITY),
         },
-    )
+    ) and "title" in payload and item.tkey and (
+        (item.title or "").strip() not in ITEM_TITLE_SET.get(item.tkey, ())
+    ):
+        # Título realmente nuevo: deja de ser un ítem "de plantilla".
+        item.tkey = None
     if "section_id" in payload:
         target = db.session.get(Section, payload["section_id"])
         if target is None:

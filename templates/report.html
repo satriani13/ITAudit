@@ -30,8 +30,8 @@
     <div class="report-notes"><strong>{{ t.notes }}:</strong> {{ audit.notes }}</div>
     {% endif %}
 
-    {% for section in audit.sections %}
-    {% set sp = section.progress() %}
+    {% for section in sections %}
+    {% set sp = section.progress %}
     <section class="report-section">
       <h2>{{ loop.index }}. {{ section.title }} <span class="muted">— {{ sp.done }}/{{ sp.total }} ({{ sp.pct }}%)</span></h2>
       {% if section.description %}<p class="muted">{{ section.description }}</p>{% endif %}

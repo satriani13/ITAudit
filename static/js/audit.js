@@ -78,7 +78,7 @@ function savePatch(kind, id, field, value, redraw) {
 
 async function load() {
   try {
-    audit = await api("audits/" + AUDIT_ID);
+    audit = await api("audits/" + AUDIT_ID + "?lang=" + window.I18N.currentLang());
   } catch (e) {
     notify(T("err.load_audit") + ": " + e.message, true);
     return;

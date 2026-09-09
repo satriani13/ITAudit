@@ -91,6 +91,10 @@ class Section(db.Model):
         db.Integer, db.ForeignKey("audits.id", ondelete="CASCADE"), nullable=False
     )
     key = db.Column(db.String(60), default="")
+    # tkey: clave de plantilla. Si tiene valor, el texto (título/descripción) es el
+    # de la plantilla y se muestra traducido al idioma de la UI. Se pone a NULL en
+    # cuanto el usuario edita el texto (pasa a ser contenido propio).
+    tkey = db.Column(db.String(80))
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, default="")
     position = db.Column(db.Integer, default=0)
@@ -113,6 +117,7 @@ class Section(db.Model):
             "id": self.id,
             "audit_id": self.audit_id,
             "key": self.key,
+            "tkey": self.tkey,
             "title": self.title,
             "description": self.description,
             "position": self.position,
@@ -130,6 +135,9 @@ class Item(db.Model):
     section_id = db.Column(
         db.Integer, db.ForeignKey("sections.id", ondelete="CASCADE"), nullable=False
     )
+    # tkey: ver Section.tkey. NULL = ítem propio (texto tal cual); con valor = ítem
+    # de plantilla, se muestra traducido al idioma de la UI.
+    tkey = db.Column(db.String(80))
     title = db.Column(db.String(300), nullable=False)
     description = db.Column(db.Text, default="")
     status = db.Column(db.String(20), default="pendiente")
@@ -153,6 +161,7 @@ class Item(db.Model):
         return {
             "id": self.id,
             "section_id": self.section_id,
+            "tkey": self.tkey,
             "title": self.title,
             "description": self.description,
             "status": self.status,
